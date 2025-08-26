@@ -67,7 +67,6 @@ impl Clone for PyProvider {
 
 #[pyclass(name = "FileProvider")]
 pub struct PyFileProvider {
-    // root: PyObject,
     pub inner: FileProvider,
 }
 
