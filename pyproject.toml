@@ -5,7 +5,7 @@ build-backend = "maturin"
 [project]
 name = "ufo_gleaner"
 version = "0.1.0"
-description = "High-performance UFO/GLIF parser for Python, written in Rust"
+description = "High-performance UFO/GLIF parser for Python written in Rust"
 authors = [{ name = "Knut Nergaard", email = "knut.nergaard@gmail.com" }]
 license = {file = "LICENSE"}
 readme = "README.md"

@@ -3,7 +3,7 @@ name = "ufo_gleaner"
 version = "0.1.0"
 edition = "2024"
 license = "MIT"
-description = "High-performance UFO/GLIF parser for Python and Rust"
+description = "High-performance UFO/GLIF parser for Python written in Rust"
 repository = "https://github.com/knutnergaard/ufo-gleaner"
 
 [lib]
