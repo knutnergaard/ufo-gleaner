@@ -28,13 +28,13 @@ provider = FileProvider("/path/to/myfont.ufo")
 gleaner = UfoGleaner(provider)
 
 glyphs = gleaner.glean()
-print(glyphs["A"]["width"])
+print(glyphs["A"]["advance"]["width"])
 ```
 
 ### Custom Providers
 
 `UfoGleaner` can be used with any Python object that implements a `read(path: str) -> bytes` method,
-where `path` is relative to the UFO root. This lets you from both `.ufo` directories and `.ufoz` 
+where `path` is relative to the UFO root. This lets you read from both `.ufo` directories and `.ufoz` 
 ZIP archives, for example:
 
 ```python
