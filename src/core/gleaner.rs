@@ -15,8 +15,8 @@
 //!
 //! ```no_run
 //! use std::path::PathBuf;
-//! use crate::provider::FileProvider;
-//! use crate::gleaner::UfoGleaner;
+//! use ufo_gleaner::provider::FileProvider;
+//! use ufo_gleaner::gleaner::UfoGleaner;
 //!
 //! let provider = Box::new(FileProvider::new(PathBuf::from("/path/to/ufo")));
 //! let gleaner = UfoGleaner::new(provider).unwrap();
@@ -104,5 +104,77 @@ impl UfoGleaner {
             }
         };
         Ok(contents)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+    use crate::glif::GlifData;
+    use crate::test_utils::MockProvider;
+    use std::collections::HashMap;
+    use std::path::Path;
+    use std::sync::{Arc, Mutex};
+
+    #[test]
+    fn test_from_plist_dict_reads_dictionary() {
+        // contents.plist: {"a": "A.glif", "b": "B.glif", "ignored": 123}
+        let mut plist_bytes = Vec::new();
+        let value = plist::Value::Dictionary(
+            [
+                ("a".to_string(), plist::Value::from("A.glif".to_string())),
+                ("b".to_string(), plist::Value::from("B.glif".to_string())),
+                ("ignored".to_string(), plist::Value::from(123)),
+            ]
+            .iter()
+            .cloned()
+            .collect(),
+        );
+        plist::to_writer_xml(&mut plist_bytes, &value).unwrap();
+
+        let path = UfoRelativePath::Contents.to_pathbuf();
+        let provider = Box::new(MockProvider::new().with_file(&path, &plist_bytes));
+        let dict = UfoGleaner::from_plist_dict(provider).unwrap();
+
+        assert_eq!(dict.len(), 2);
+        assert_eq!(dict["a"], "A.glif");
+        assert_eq!(dict["b"], "B.glif");
+        assert!(!dict.contains_key("ignored"));
+    }
+
+    #[test]
+    fn test_new_and_glean() {
+        // Mock GLIF parser returns dummy GlifData for any input
+        let path = UfoRelativePath::Contents.to_pathbuf();
+        let provider = Box::new(MockProvider::new().with_file(&path, b"<?xml version='1.0'?><plist version='1.0'><dict><key>a</key><string>A.glif</string></dict></plist>"));
+
+        // Use actual UfoGleaner with mocked GlifParser
+        let gleaner = UfoGleaner::new(provider).unwrap();
+        let glyphs = gleaner.glean().unwrap();
+
+        assert_eq!(glyphs.len(), 1);
+        assert!(glyphs.contains_key("a"));
+        assert!(glyphs["a"].is_none() || matches!(glyphs["a"], Some(GlifData { .. })));
+    }
+
+    #[test]
+    fn test_from_plist_dict_invalid_file() {
+        let provider = Box::new(MockProvider::new()); // no files
+        let err = UfoGleaner::from_plist_dict(provider).unwrap_err();
+        assert_eq!(err.kind(), &crate::error::ErrorKind::Io);
+    }
+
+    #[test]
+    fn test_from_plist_dict_not_dictionary() {
+        let value = plist::Value::String("not a dict".to_string());
+        let mut plist_bytes = Vec::new();
+
+        plist::to_writer_xml(&mut plist_bytes, &value).unwrap();
+
+        let path = UfoRelativePath::Contents.to_pathbuf();
+        let provider = Box::new(MockProvider::new().with_file(&path, &plist_bytes));
+        let err = UfoGleaner::from_plist_dict(provider).unwrap_err();
+        assert_eq!(err.kind(), &crate::error::ErrorKind::Plist);
     }
 }

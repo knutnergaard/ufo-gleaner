@@ -83,3 +83,54 @@ impl PyUfoGleaner {
         Ok(py_dict.into())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use pyo3::types::PyDict;
+
+    use crate::error::Error;
+    use crate::gleaner::UfoGleaner;
+    use crate::paths;
+    use crate::test_utils::MockProvider;
+
+    #[test]
+    fn test_pyufogleaner_new_and_glean() {
+        Python::with_gil(|py| {
+            // Mock contents.plist with one glyph
+            let contents = br#"<?xml version='1.0'?><plist version='1.0'><dict><key>A</key><string>A.glif</string></dict></plist>"#;
+            let mock_provider = Box::new(
+                MockProvider::new()
+                    .with_file(&paths::UfoRelativePath::Contents.to_pathbuf(), contents),
+            );
+
+            // Wrap the provider in PyUfoGleaner manually via inner UfoGleaner
+            let gleaner_inner = crate::gleaner::UfoGleaner::new(mock_provider).unwrap();
+            let py_gleaner = PyUfoGleaner {
+                inner: gleaner_inner,
+            };
+
+            // Call `glean` and check results
+            let dict = py_gleaner.glean(py).unwrap();
+            let bound_dict = dict.as_ref().downcast_bound::<PyDict>(py).unwrap();
+            assert_eq!(bound_dict.len(), 1);
+            assert!(bound_dict.contains("A").unwrap());
+
+            let value = bound_dict.get_item("A").unwrap();
+            assert!(!value.is_none());
+        });
+    }
+
+    #[test]
+    fn test_pyufogleaner_glean_empty() {
+        Python::with_gil(|py| {
+            let mock_provider = Box::new(MockProvider::new());
+            let result = UfoGleaner::new(mock_provider);
+            assert!(result.is_err());
+
+            let err = result.err().unwrap();
+
+            assert!(matches!(err.kind(), crate::error::ErrorKind::Io));
+        });
+    }
+}

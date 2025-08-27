@@ -34,3 +34,56 @@ impl PlistParser {
         Ok(file)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use plist::Value;
+    use std::collections::BTreeMap;
+    use std::path::Path;
+
+    use crate::test_utils::MockProvider;
+
+    #[test]
+    fn parses_valid_plist() {
+        // Create a tiny plist dictionary
+        let mut map = BTreeMap::new();
+        map.insert("a".to_string(), Value::String("A".to_string()));
+
+        let dict: plist::Dictionary = map.into_iter().collect();
+        let value = Value::Dictionary(dict);
+
+        // Serialize into XML bytes
+        let mut plist_bytes = Vec::new();
+        plist::to_writer_xml(&mut plist_bytes, &value).unwrap();
+
+        let provider =
+            Box::new(MockProvider::new().with_file(Path::new("test.plist"), &plist_bytes));
+        let parser = PlistParser::new(provider).unwrap();
+
+        let parsed = parser.parse_plist(Path::new("test.plist")).unwrap();
+        match parsed {
+            Value::Dictionary(map) => {
+                assert_eq!(map.get("a"), Some(&Value::String("A".to_string())));
+            }
+            _ => panic!("Expected dictionary value"),
+        }
+    }
+
+    #[test]
+    fn returns_error_when_missing_file() {
+        let provider = Box::new(MockProvider::new());
+        let parser = PlistParser::new(provider).unwrap();
+        let err = parser.parse_plist(Path::new("missing.plist")).unwrap_err();
+        assert_eq!(err.kind(), &crate::error::ErrorKind::Io);
+    }
+
+    #[test]
+    fn returns_error_when_invalid_plist() {
+        let provider =
+            Box::new(MockProvider::new().with_file(Path::new("bad.plist"), b"not valid plist"));
+        let parser = PlistParser::new(provider).unwrap();
+        let err = parser.parse_plist(Path::new("bad.plist")).unwrap_err();
+        assert_eq!(err.kind(), &crate::error::ErrorKind::Plist);
+    }
+}

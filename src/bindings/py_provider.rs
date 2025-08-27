@@ -78,3 +78,100 @@ impl PyFileProvider {
         Self { inner }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::provider::Provider;
+    use pyo3::types::PyBytes;
+
+    use std::collections::HashMap;
+
+    /// Mock Python object with a `read` method
+    #[pyclass]
+    struct MockPyRoot {
+        files: HashMap<String, Vec<u8>>,
+    }
+
+    #[pymethods]
+    impl MockPyRoot {
+        #[new]
+        fn new() -> Self {
+            Self {
+                files: HashMap::new(),
+            }
+        }
+
+        fn add_file(&mut self, path: String, contents: Vec<u8>) {
+            self.files.insert(path, contents);
+        }
+
+        fn read(&self, path: &str) -> PyResult<Py<PyBytes>> {
+            Python::with_gil(|py| match self.files.get(path) {
+                Some(data) => Ok(PyBytes::new(py, data).into()),
+                None => Err(pyo3::exceptions::PyIOError::new_err(format!(
+                    "file not found: {}",
+                    path
+                ))),
+            })
+        }
+    }
+
+    #[test]
+    fn pyprovider_reads_existing_file() {
+        Python::with_gil(|py| {
+            let root = Py::new(py, MockPyRoot::new()).unwrap();
+            let mut root_ref: PyRefMut<MockPyRoot> = root.extract(py).unwrap();
+            root_ref.add_file("test.txt".to_string(), b"hello".to_vec());
+
+            // let root2 = root.clone_ref(py).into_any();
+            let provider = PyProvider::new(py, root.into_any()).unwrap();
+            let bytes = provider.read(std::path::Path::new("test.txt")).unwrap();
+            assert_eq!(bytes, b"hello");
+        });
+    }
+
+    #[test]
+    fn pyprovider_read_missing_file_errors() {
+        Python::with_gil(|py| {
+            let root = Py::new(py, MockPyRoot::new()).unwrap();
+            let provider = PyProvider::new(py, root.into_any()).unwrap();
+            let result = provider.read(std::path::Path::new("missing.txt"));
+            assert!(result.is_err());
+            let err = result.unwrap_err();
+            assert!(matches!(err.kind(), crate::error::ErrorKind::Other(_)));
+        });
+    }
+
+    #[test]
+    fn pyprovider_clone_preserves_data() {
+        Python::with_gil(|py| {
+            let root = Py::new(py, MockPyRoot::new()).unwrap();
+            let mut root_ref: PyRefMut<MockPyRoot> = root.extract(py).unwrap();
+            root_ref.add_file("clone.txt".to_string(), b"clonedata".to_vec());
+
+            let provider = PyProvider::new(py, root.into_any()).unwrap();
+            let cloned = provider.clone();
+            let bytes = cloned.read(std::path::Path::new("clone.txt")).unwrap();
+            assert_eq!(bytes, b"clonedata");
+        });
+    }
+
+    #[test]
+    fn pyfileprovider_reads_local_file() {
+        use std::io::Write;
+        use tempfile::tempdir;
+
+        let dir = tempdir().unwrap();
+        let file_path = dir.path().join("file.txt");
+        let mut f = std::fs::File::create(&file_path).unwrap();
+        f.write_all(b"diskdata").unwrap();
+
+        let pyfile_provider = PyFileProvider::new(dir.path().to_string_lossy().to_string());
+        let bytes = pyfile_provider
+            .inner
+            .read(std::path::Path::new("file.txt"))
+            .unwrap();
+        assert_eq!(bytes, b"diskdata");
+    }
+}

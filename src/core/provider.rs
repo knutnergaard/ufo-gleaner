@@ -76,3 +76,45 @@ impl Provider for FileProvider {
         Ok(buffer)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs::File;
+    use std::io::Write;
+    use tempfile::tempdir;
+
+    use crate::test_utils::MockProvider;
+
+    #[test]
+    fn test_fileprovider_reads_file() {
+        let dir = tempdir().unwrap();
+        let file_path = dir.path().join("test.txt");
+
+        // Write some content to the file
+        let mut f = File::create(&file_path).unwrap();
+        write!(f, "Hello, world!").unwrap();
+
+        let provider = FileProvider::new(dir.path());
+        let bytes = provider.read(Path::new("test.txt")).unwrap();
+        assert_eq!(bytes, b"Hello, world!");
+    }
+
+    #[test]
+    fn test_fileprovider_file_not_found() {
+        let dir = tempdir().unwrap();
+        let provider = FileProvider::new(dir.path());
+
+        let err = provider.read(Path::new("missing.txt")).unwrap_err();
+        assert_eq!(err.kind(), &crate::error::ErrorKind::FileNotFound);
+    }
+
+    #[test]
+    fn test_boxed_provider_clone() {
+        let mock = Box::new(MockProvider::new().with_file(Path::new("a.txt"), b"abc"));
+        let cloned: Box<dyn Provider> = mock.clone();
+
+        let content = cloned.read(Path::new("a.txt")).unwrap();
+        assert_eq!(content, b"abc");
+    }
+}

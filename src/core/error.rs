@@ -186,3 +186,143 @@ impl From<Utf8Error> for Error {
         Self::new(ErrorKind::Parse).with_cause(err)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::error::Error as StdError;
+    use std::io;
+    use std::num::{ParseFloatError, ParseIntError};
+    use std::str::Utf8Error;
+
+    fn make_parse_int_error() -> ParseIntError {
+        "not_an_int".parse::<i32>().unwrap_err()
+    }
+
+    fn make_parse_float_error() -> ParseFloatError {
+        "not_a_float".parse::<f32>().unwrap_err()
+    }
+
+    fn make_utf8_error() -> Utf8Error {
+        let bytes = vec![0xff];
+        std::str::from_utf8(&bytes).unwrap_err()
+    }
+
+    #[test]
+    fn errorkind_display_variants() {
+        assert_eq!(ErrorKind::Io.to_string(), "I/O error");
+        assert_eq!(ErrorKind::Plist.to_string(), "Plist parsing error");
+        assert_eq!(ErrorKind::Xml.to_string(), "Xml parsing error");
+        assert_eq!(ErrorKind::Parse.to_string(), "Parsing error");
+        assert_eq!(ErrorKind::FileNotFound.to_string(), "File not found");
+        assert_eq!(
+            ErrorKind::MissingAttribute("attr".into()).to_string(),
+            "Missing attribute: attr"
+        );
+        assert_eq!(
+            ErrorKind::Other("something bad".into()).to_string(),
+            "something bad"
+        );
+    }
+
+    #[test]
+    fn error_builders_and_getters() {
+        let err = Error::new(ErrorKind::Io)
+            .with_path("some/file.ufo")
+            .with_context(|| "reading file");
+        assert_eq!(err.kind(), &ErrorKind::Io);
+        assert_eq!(err.path(), &Some("some/file.ufo".into()));
+        assert_eq!(err.context(), &Some("reading file".into()));
+    }
+
+    #[test]
+    fn error_display_variations() {
+        let base = Error::new(ErrorKind::Parse);
+        assert_eq!(base.to_string(), "Parsing error");
+
+        let with_path = Error::new(ErrorKind::Parse).with_path("file.glif");
+        assert_eq!(
+            with_path.to_string(),
+            "An error occurred for 'file.glif': Parsing error"
+        );
+
+        let with_context = Error::new(ErrorKind::Parse).with_context(|| "while parsing");
+        assert_eq!(with_context.to_string(), "while parsing: Parsing error");
+
+        let with_both = Error::new(ErrorKind::Parse)
+            .with_path("file.glif")
+            .with_context(|| "while parsing");
+        assert_eq!(
+            with_both.to_string(),
+            "while parsing for 'file.glif': Parsing error"
+        );
+    }
+
+    #[test]
+    fn error_source_returns_cause() {
+        let io_err = io::Error::new(io::ErrorKind::Other, "disk failed");
+        let err = Error::new(ErrorKind::Io).with_cause(io_err);
+        let src = err.source().unwrap();
+        assert_eq!(src.to_string(), "disk failed");
+    }
+
+    #[test]
+    fn from_io_error_other() {
+        let io_err = io::Error::new(io::ErrorKind::Other, "oh no");
+        let err: Error = io_err.into();
+        assert_eq!(err.kind(), &ErrorKind::Io);
+        assert!(err.source().is_some());
+    }
+
+    #[test]
+    fn from_io_error_not_found() {
+        let io_err = io::Error::new(io::ErrorKind::NotFound, "missing");
+        let err: Error = io_err.into();
+        assert_eq!(err.kind(), &ErrorKind::FileNotFound);
+        assert!(err.source().is_some());
+    }
+
+    #[test]
+    fn from_plist_error() {
+        let data = b"ivalid plist";
+        let result: std::result::Result<plist::Value, plist::Error> = plist::from_bytes(data);
+        let plist_err = result.unwrap_err();
+        let err: Error = plist_err.into();
+        assert_eq!(err.kind(), &ErrorKind::Plist);
+        assert!(err.source().is_some());
+    }
+
+    #[test]
+    fn from_quick_xml_error() {
+        let data = "<invalid xml";
+        let mut reader = quick_xml::Reader::from_str(data);
+        let xml_err = reader.read_event().unwrap_err();
+        let err: Error = xml_err.into();
+        assert_eq!(err.kind(), &ErrorKind::Xml);
+        assert!(err.source().is_some());
+    }
+
+    #[test]
+    fn from_parse_int_error() {
+        let int_err = make_parse_int_error();
+        let err: Error = int_err.into();
+        assert_eq!(err.kind(), &ErrorKind::Parse);
+        assert!(err.source().is_some());
+    }
+
+    #[test]
+    fn from_parse_float_error() {
+        let float_err = make_parse_float_error();
+        let err: Error = float_err.into();
+        assert_eq!(err.kind(), &ErrorKind::Parse);
+        assert!(err.source().is_some());
+    }
+
+    #[test]
+    fn from_utf8_error() {
+        let utf8_err = make_utf8_error();
+        let err: Error = utf8_err.into();
+        assert_eq!(err.kind(), &ErrorKind::Parse);
+        assert!(err.source().is_some());
+    }
+}

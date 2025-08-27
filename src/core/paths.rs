@@ -34,3 +34,48 @@ impl UfoRelativePath {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::Path;
+
+    #[test]
+    fn test_standard_paths() {
+        assert_eq!(
+            UfoRelativePath::Contents.to_pathbuf(),
+            Path::new("glyphs/contents.plist")
+        );
+        assert_eq!(
+            UfoRelativePath::FontInfo.to_pathbuf(),
+            Path::new("fontinfo.plist")
+        );
+        assert_eq!(
+            UfoRelativePath::Groups.to_pathbuf(),
+            Path::new("groups.plist")
+        );
+        assert_eq!(
+            UfoRelativePath::Kerning.to_pathbuf(),
+            Path::new("kerning.plist")
+        );
+        assert_eq!(
+            UfoRelativePath::LayerContents.to_pathbuf(),
+            Path::new("layercontents.plist")
+        );
+        assert_eq!(
+            UfoRelativePath::LayerInfo.to_pathbuf(),
+            Path::new("glyphs/layerinfo.plist")
+        );
+        assert_eq!(UfoRelativePath::Lib.to_pathbuf(), Path::new("lib.plist"));
+        assert_eq!(
+            UfoRelativePath::MetaInfo.to_pathbuf(),
+            Path::new("metainfo.plist")
+        );
+    }
+
+    #[test]
+    fn test_glif_file_path() {
+        let path = UfoRelativePath::GlifFile("A.glif".to_string()).to_pathbuf();
+        assert_eq!(path, Path::new("glyphs/A.glif"));
+    }
+}
