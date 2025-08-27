@@ -1,6 +1,6 @@
 [package]
 name = "ufo_gleaner"
-version = "0.1.0"
+version = "0.1.2"
 edition = "2024"
 license = "MIT"
 description = "High-performance UFO/GLIF parser for Python written in Rust"
