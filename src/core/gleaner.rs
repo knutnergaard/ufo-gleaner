@@ -113,9 +113,6 @@ mod tests {
     use super::*;
     use crate::glif::GlifData;
     use crate::test_utils::MockProvider;
-    use std::collections::HashMap;
-    use std::path::Path;
-    use std::sync::{Arc, Mutex};
 
     #[test]
     fn test_from_plist_dict_reads_dictionary() {
