@@ -1,3 +1,14 @@
+//! Python binding for [`GlifData`].
+//!
+//! Allows Rust-native UFO glyph data to be exposed to Python as standard Python dictionaries
+//! without writing a manual conversion layer for each nested type.
+//!
+//! # Design Notes
+//!
+//! - All optional values are preserved as `None` in Python. Empty arrays or objects become empty
+//!   Python `list` or `dict`.
+//! - The conversion happens entirely in Rust, so Python code receives a fully ready-to-use
+//!   dictionary structure.
 use pyo3::prelude::*;
 use pyo3::types::{PyBool, PyDict, PyFloat, PyInt, PyList, PyString};
 use serde_json::Value as JsonValue;
@@ -11,12 +22,12 @@ pub struct PyGlifData {
 
 #[pymethods]
 impl PyGlifData {
+    /// Serialize [`GlifData`] to JSON and recursively convert to native Python objects.
     pub fn to_pydict(&self, py: Python) -> PyResult<PyObject> {
         // serialize self.inner to JSON
         let json_val = serde_json::to_value(&self.inner)
             .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))?;
 
-        // convert JSON -> PyObject recursively
         json_to_pydict(py, &json_val)
     }
 }
@@ -58,14 +69,8 @@ mod tests {
     use crate::glif::Advance;
 
     use super::*;
-    use pyo3::prelude::*;
     use pyo3::types::{PyDict, PyList};
     use serde_json::json;
-
-    fn setup_python() -> Python<'static> {
-        pyo3::prepare_freethreaded_python();
-        unsafe { Python::assume_gil_acquired() }
-    }
 
     #[test]
     fn test_json_to_pydict_basic_types() {
