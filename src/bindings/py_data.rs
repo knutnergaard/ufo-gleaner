@@ -9,6 +9,7 @@
 //!   Python `list` or `dict`.
 //! - The conversion happens entirely in Rust, so Python code receives a fully ready-to-use
 //!   dictionary structure.
+use pyo3::exceptions::PyRuntimeError;
 use pyo3::prelude::*;
 use pyo3::types::{PyBool, PyDict, PyFloat, PyInt, PyList, PyString};
 use serde_json::Value as JsonValue;
@@ -26,7 +27,7 @@ impl PyGlifData {
     pub fn to_pydict(&self, py: Python) -> PyResult<PyObject> {
         // serialize self.inner to JSON
         let json_val = serde_json::to_value(&self.inner)
-            .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))?;
+            .map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
 
         json_to_pydict(py, &json_val)
     }

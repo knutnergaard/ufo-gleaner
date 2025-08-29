@@ -1,6 +1,8 @@
 //! Conversion utilities between Rust [`Error`] and Python exceptions (`PyErr`) for PyO3.
 use pyo3::PyErr;
-use pyo3::exceptions::PyIOError;
+use pyo3::exceptions::{
+    PyAttributeError, PyFileNotFoundError, PyOSError, PyRuntimeError, PySyntaxError, PyValueError,
+};
 
 use crate::error::{Error, ErrorKind};
 
@@ -33,9 +35,17 @@ pub trait ToPyErr {
     fn to_pyerr(self) -> PyErr;
 }
 
-impl ToPyErr for Error {
-    fn to_pyerr(self) -> PyErr {
-        PyIOError::new_err(self.to_string())
+impl From<Error> for PyErr {
+    fn from(err: Error) -> Self {
+        match err.kind() {
+            ErrorKind::Io => PyOSError::new_err(err.to_string()),
+            ErrorKind::Plist => PyValueError::new_err(err.to_string()),
+            ErrorKind::Xml => PySyntaxError::new_err(err.to_string()),
+            ErrorKind::Parse => PyValueError::new_err(err.to_string()),
+            ErrorKind::FileNotFound => PyFileNotFoundError::new_err(err.to_string()),
+            ErrorKind::MissingAttribute(attr) => PyAttributeError::new_err(attr.clone()),
+            ErrorKind::Other(_) => PyRuntimeError::new_err(err.to_string()),
+        }
     }
 }
 
@@ -43,7 +53,6 @@ impl ToPyErr for Error {
 mod tests {
 
     use super::*;
-    use pyo3::exceptions::PyIOError;
     use pyo3::prelude::*;
 
     use std::error::Error as StdError;
@@ -51,7 +60,7 @@ mod tests {
     #[test]
     fn pyerr_to_ufo_sets_cause_and_kind() {
         Python::with_gil(|_py| {
-            let pyerr = PyIOError::new_err("test error");
+            let pyerr = PyOSError::new_err("test error");
             let err = pyerr.to_ufo();
             // Check that the kind contains the original message
             assert!(matches!(err.kind(), ErrorKind::Other(msg) if msg.contains("test error")));
@@ -63,10 +72,10 @@ mod tests {
     #[test]
     fn error_to_pyerr_returns_pyioerror_with_message() {
         let rust_err = Error::new(ErrorKind::Other("some context".to_string()));
-        let py_err = rust_err.to_pyerr();
+        let py_err: PyErr = rust_err.into();
         Python::with_gil(|_py| {
             // Ensure the PyErr is a PyIOError
-            assert!(py_err.is_instance_of::<PyIOError>(_py));
+            assert!(py_err.is_instance_of::<PyOSError>(_py));
             assert!(py_err.to_string().contains("some context"));
         });
     }

@@ -1,7 +1,7 @@
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
 
-use crate::bindings::{PyFileProvider, PyGlifData, PyProvider, ToPyErr};
+use crate::bindings::{PyFileProvider, PyGlifData, PyProvider};
 use crate::gleaner::UfoGleaner;
 use crate::provider::Provider;
 
@@ -38,13 +38,13 @@ impl PyUfoGleaner {
         match provider.extract::<PyRef<PyFileProvider>>(py) {
             Ok(file_provider) => {
                 let boxed = Box::new(file_provider.inner.clone());
-                let gleaner = UfoGleaner::new(boxed).map_err(|e| e.to_pyerr())?;
+                let gleaner = UfoGleaner::new(boxed)?;
                 Ok(Self { inner: gleaner })
             }
             Err(_) => {
-                let provider = PyProvider::new(py, provider).map_err(|e| e.to_pyerr())?;
+                let provider = PyProvider::new(py, provider)?;
                 let boxed: Box<dyn Provider> = Box::new(provider);
-                let gleaner = UfoGleaner::new(boxed).map_err(|e| e.to_pyerr())?;
+                let gleaner = UfoGleaner::new(boxed)?;
                 Ok(Self { inner: gleaner })
             }
         }
@@ -65,7 +65,7 @@ impl PyUfoGleaner {
     /// print(glyphs["A"])  # Either a dict with glyph data or None
     /// ```
     pub fn glean(&self, py: Python<'_>) -> PyResult<Py<PyDict>> {
-        let map = self.inner.glean().map_err(|e| e.to_pyerr())?;
+        let map = self.inner.glean()?;
 
         let py_dict = PyDict::new(py);
 
@@ -89,7 +89,6 @@ mod tests {
     use super::*;
     use pyo3::types::PyDict;
 
-    use crate::error::Error;
     use crate::gleaner::UfoGleaner;
     use crate::paths;
     use crate::test_utils::MockProvider;
