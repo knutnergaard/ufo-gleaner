@@ -12,7 +12,7 @@
 use pyo3::exceptions::PyRuntimeError;
 use pyo3::prelude::*;
 use pyo3::types::{PyBool, PyDict, PyFloat, PyInt, PyList, PyString};
-use serde_json::Value as JsonValue;
+use serde_json::Value;
 
 use crate::glif::data::GlifData;
 
@@ -33,24 +33,24 @@ impl PyGlifData {
     }
 }
 
-fn json_to_pydict<'py>(py: Python<'py>, val: &JsonValue) -> PyResult<PyObject> {
+fn json_to_pydict<'py>(py: Python<'py>, val: &Value) -> PyResult<PyObject> {
     match val {
-        JsonValue::Object(map) => {
+        Value::Object(map) => {
             let dict = PyDict::new(py);
             for (k, v) in map {
                 dict.set_item(k, json_to_pydict(py, v)?)?;
             }
             Ok(dict.into())
         }
-        JsonValue::Array(arr) => {
+        Value::Array(arr) => {
             let list = PyList::empty(py);
             for v in arr {
                 list.append(json_to_pydict(py, v)?)?;
             }
             Ok(list.into())
         }
-        JsonValue::String(s) => Ok(PyString::new(py, s).into()),
-        JsonValue::Number(n) => {
+        Value::String(s) => Ok(PyString::new(py, s).into()),
+        Value::Number(n) => {
             if let Some(i) = n.as_i64() {
                 Ok(PyInt::new(py, i).into())
             } else if let Some(f) = n.as_f64() {
@@ -60,8 +60,8 @@ fn json_to_pydict<'py>(py: Python<'py>, val: &JsonValue) -> PyResult<PyObject> {
             }
         }
         // PyBool needs to be wrapped in `Py::from`
-        JsonValue::Bool(b) => Ok(Py::from(PyBool::new(py, *b)).into()),
-        JsonValue::Null => Ok(py.None()),
+        Value::Bool(b) => Ok(Py::from(PyBool::new(py, *b)).into()),
+        Value::Null => Ok(py.None()),
     }
 }
 
