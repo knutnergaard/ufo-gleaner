@@ -7,6 +7,29 @@ use crate::glif::{GlifData, GlifParser};
 use crate::provider::ProviderHandle;
 
 /// Eager batch parser for UFO GLIF files.
+///
+/// # Requirements
+///
+/// To use `Gleaner`, you must provide a concrete implementation of the [`Provider`]
+/// trait, which defines how files are read from the UFO file system.
+/// See [`crate::provider::FileProvider`] for a simple example prividing local disk access.
+///
+/// # Example
+///
+/// ```no_run
+/// use std::path::PathBuf;
+/// use ufo_gleaner::provider::FileProvider;
+/// use ufo_gleaner::gleaner::Gleaner;
+///
+/// let provider = FileProvider::new(PathBuf::from("/path/to/ufo"));
+/// let gleaner = Gleaner::new(provider).unwrap();
+/// let glyphs = gleaner.glean().unwrap();
+/// ```
+///
+/// # Errors
+///
+/// Returns an [`Error`] if the `contents.plist` cannot be read or parsed,
+/// or if the GLIF parser cannot be initialized.
 pub struct Gleaner {
     contents: HashMap<String, String>,
     glif_parser: GlifParser,
@@ -14,29 +37,6 @@ pub struct Gleaner {
 
 impl Gleaner {
     /// Constructs a new [`Gleaner`] from a given [`Provider`] implementation.
-    ///
-    /// //! # Requirements
-    ///
-    /// To use `Gleaner`, you must provide a concrete implementation of the [`Provider`]
-    /// trait, which defines how files are read from the UFO file system.
-    /// See [`crate::provider::FileProvider`] for a simple example prividing local disk access.
-    ///
-    /// # Example
-    ///
-    /// ```no_run
-    /// use std::path::PathBuf;
-    /// use ufo_gleaner::provider::FileProvider;
-    /// use ufo_gleaner::gleaner::Gleaner;
-    ///
-    /// let provider = FileProvider::new(PathBuf::from("/path/to/ufo"));
-    /// let gleaner = Gleaner::new(provider).unwrap();
-    /// let glyphs = gleaner.glean().unwrap();
-    /// ```
-    ///
-    /// # Errors
-    ///
-    /// Returns an [`Error`] if the `contents.plist` cannot be read or parsed,
-    /// or if the GLIF parser cannot be initialized.
     pub fn new(provider: ProviderHandle) -> Result<Self> {
         // fs is cheap to clone.
         let contents = crate::plist::parse_contents(provider.clone())?;

@@ -47,7 +47,7 @@ pub struct FileProvider {
 }
 
 impl FileProvider {
-    /// Creates a new [`Rc`]-wrapped [`FileProvider`] with the given root directory.
+    /// Creates a new provider with the given root directory.
     pub fn new<P: Into<std::path::PathBuf>>(root: P) -> Rc<Self> {
         Rc::new(Self { root: root.into() })
     }
