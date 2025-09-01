@@ -2,22 +2,20 @@ use pyo3::prelude::*;
 use pyo3::types::PyDict;
 
 use crate::bindings::{PyFileProvider, PyGlifData, PyProvider};
-use crate::gleaner::UfoGleaner;
-use crate::provider::Provider;
+use crate::gleaner::Gleaner;
 
-/// High-level parser for UFO GLIF files in Python.
+/// Batch-parse UFO GLIF files Eagerly.
 ///
-/// Wraps [`UfoGleaner`] to provide Python access to UFO glyph data.
-/// Users must supply a provider object that implements the file-reading
-/// interface (e.g., [`FileProvider`] for local files).
-#[pyclass(unsendable, name = "UfoGleaner")]
-pub struct PyUfoGleaner {
-    inner: UfoGleaner,
+/// To use this class, you must provide a concrete implementation of the [`PyProvider`] protocol,
+/// exemplified by the included [`PyFileProvider`] class.
+#[pyclass(unsendable, name = "Gleaner")]
+pub struct PyGleaner {
+    inner: Gleaner,
 }
 
 #[pymethods]
-impl PyUfoGleaner {
-    /// Creates a new `UfoGleaner`.
+impl PyGleaner {
+    /// Creates a new `Gleaner`.
     ///
     /// # Arguments
     ///
@@ -26,10 +24,10 @@ impl PyUfoGleaner {
     /// # Example
     ///
     /// ```python
-    /// from ufo_gleaner import UfoGleaner, FileProvider
+    /// from ufo_gleaner import Gleaner, FileProvider
     ///
     /// provider = FileProvider("/path/to/myfont.ufo")
-    /// gleaner = UfoGleaner(provider)
+    /// gleaner = Gleaner(provider)
     /// ```
     #[new]
     pub fn new(py: Python<'_>, provider: Py<PyAny>) -> PyResult<Self> {
@@ -37,14 +35,12 @@ impl PyUfoGleaner {
         // Return if Ok. If not, assume it's a custom PyProvider implementation.
         match provider.extract::<PyRef<PyFileProvider>>(py) {
             Ok(file_provider) => {
-                let boxed = Box::new(file_provider.inner.clone());
-                let gleaner = UfoGleaner::new(boxed)?;
+                let gleaner = Gleaner::new(file_provider.inner.clone())?;
                 Ok(Self { inner: gleaner })
             }
             Err(_) => {
                 let provider = PyProvider::new(py, provider)?;
-                let boxed: Box<dyn Provider> = Box::new(provider);
-                let gleaner = UfoGleaner::new(boxed)?;
+                let gleaner = Gleaner::new(provider)?;
                 Ok(Self { inner: gleaner })
             }
         }
@@ -89,7 +85,7 @@ mod tests {
     use super::*;
     use pyo3::types::PyDict;
 
-    use crate::gleaner::UfoGleaner;
+    use crate::gleaner::Gleaner;
     use crate::paths;
     use crate::test_utils::MockProvider;
 
@@ -98,14 +94,12 @@ mod tests {
         Python::with_gil(|py| {
             // Mock contents.plist with one glyph
             let contents = br#"<?xml version='1.0'?><plist version='1.0'><dict><key>A</key><string>A.glif</string></dict></plist>"#;
-            let mock_provider = Box::new(
-                MockProvider::new()
-                    .with_file(&paths::UfoRelativePath::Contents.to_pathbuf(), contents),
-            );
+            let mock_provider = MockProvider::new();
+            mock_provider.with_file(&paths::UfoRelativePath::Contents.to_pathbuf(), contents);
 
-            // Wrap the provider in PyUfoGleaner manually via inner UfoGleaner
-            let gleaner_inner = crate::gleaner::UfoGleaner::new(mock_provider).unwrap();
-            let py_gleaner = PyUfoGleaner {
+            // Wrap the provider in PyGleaner manually via inner Gleaner
+            let gleaner_inner = crate::gleaner::Gleaner::new(mock_provider).unwrap();
+            let py_gleaner = PyGleaner {
                 inner: gleaner_inner,
             };
 
@@ -122,9 +116,9 @@ mod tests {
 
     #[test]
     fn test_pyufogleaner_glean_empty() {
-        Python::with_gil(|py| {
-            let mock_provider = Box::new(MockProvider::new());
-            let result = UfoGleaner::new(mock_provider);
+        Python::with_gil(|_py| {
+            let mock_provider = MockProvider::new();
+            let result = Gleaner::new(mock_provider);
             assert!(result.is_err());
 
             let err = result.err().unwrap();
