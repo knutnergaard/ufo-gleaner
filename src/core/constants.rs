@@ -1,4 +1,5 @@
 //! Internal and UFO-specific constants.
+
 pub mod ufo {
     pub mod kerning_prefix {
         pub const PUBLIC_PREFIX: &str = "public.";

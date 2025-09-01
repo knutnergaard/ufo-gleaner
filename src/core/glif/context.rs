@@ -1,3 +1,5 @@
+//! Intermediate state management for GLIF parsing.
+
 use std::io::Cursor;
 
 use crate::error::Result;

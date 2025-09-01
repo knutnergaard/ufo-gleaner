@@ -1,4 +1,5 @@
 //! Attribute & parsing helpers.
+
 use std::io::Cursor;
 
 use quick_xml::Writer;

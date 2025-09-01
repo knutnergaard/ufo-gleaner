@@ -1,47 +1,43 @@
-//! Provides a high-level interface for reading and parsing UFO font data.
-//!
-//! `UfoGleaner` combines a property list parser and an XML parser to extract glyph
-//! information from a UFO font package. It reads the `contents.plist` file to
-//! determine which glyphs exist, and then parses each `.glif` file to produce
-//! structured [`GlifData`] for downstream processing.
-//!
-//! # Requirements
-//!
-//! To use `UfoGleaner`, you must provide a concrete implementation of the [`Provider`]
-//! trait, which defines how files are read from the UFO file system.
-//! See [`crate::provider::FileProvider`] for a simple example prividing local disk access.
-//!
-//! # Example
-//!
-//! ```no_run
-//! use std::path::PathBuf;
-//! use ufo_gleaner::provider::FileProvider;
-//! use ufo_gleaner::gleaner::UfoGleaner;
-//!
-//! let provider = Box::new(FileProvider::new(PathBuf::from("/path/to/ufo")));
-//! let gleaner = UfoGleaner::new(provider).unwrap();
-//! let glyphs = gleaner.glean().unwrap();
-//! ```
+//! High-level interface for eagerly parsing UFO GLIF files.
+
 use std::collections::HashMap;
 
 use crate::error::Result;
 use crate::glif::{GlifData, GlifParser};
-use crate::provider::Provider;
+use crate::provider::ProviderHandle;
 
-/// High-level UFO GLIF parser.
-pub struct UfoGleaner {
+/// Eager batch parser for UFO GLIF files.
+pub struct Gleaner {
     contents: HashMap<String, String>,
     glif_parser: GlifParser,
 }
 
-impl UfoGleaner {
-    /// Constructs a new [`UfoGleaner`] from a given [`Provider`] implementation.
+impl Gleaner {
+    /// Constructs a new [`Gleaner`] from a given [`Provider`] implementation.
+    ///
+    /// //! # Requirements
+    ///
+    /// To use `Gleaner`, you must provide a concrete implementation of the [`Provider`]
+    /// trait, which defines how files are read from the UFO file system.
+    /// See [`crate::provider::FileProvider`] for a simple example prividing local disk access.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// use std::path::PathBuf;
+    /// use ufo_gleaner::provider::FileProvider;
+    /// use ufo_gleaner::gleaner::Gleaner;
+    ///
+    /// let provider = FileProvider::new(PathBuf::from("/path/to/ufo"));
+    /// let gleaner = Gleaner::new(provider).unwrap();
+    /// let glyphs = gleaner.glean().unwrap();
+    /// ```
     ///
     /// # Errors
     ///
     /// Returns an [`Error`] if the `contents.plist` cannot be read or parsed,
     /// or if the GLIF parser cannot be initialized.
-    pub fn new(provider: Box<dyn Provider>) -> Result<Self> {
+    pub fn new(provider: ProviderHandle) -> Result<Self> {
         // fs is cheap to clone.
         let contents = crate::plist::parse_contents(provider.clone())?;
         let glif_parser = GlifParser::new(provider)?;
@@ -75,6 +71,7 @@ impl UfoGleaner {
 mod tests {
 
     use super::*;
+
     use crate::glif::GlifData;
     use crate::paths::UfoRelativePath;
     use crate::test_utils::MockProvider;
@@ -83,10 +80,11 @@ mod tests {
     fn test_new_and_glean() {
         // Mock GLIF parser returns dummy GlifData for any input
         let path = UfoRelativePath::Contents.to_pathbuf();
-        let provider = Box::new(MockProvider::new().with_file(&path, b"<?xml version='1.0'?><plist version='1.0'><dict><key>a</key><string>A.glif</string></dict></plist>"));
+        let provider = MockProvider::new();
+        provider.with_file(&path, b"<?xml version='1.0'?><plist version='1.0'><dict><key>a</key><string>A.glif</string></dict></plist>");
 
-        // Use actual UfoGleaner with mocked GlifParser
-        let gleaner = UfoGleaner::new(provider).unwrap();
+        // Use actual Gleaner with mocked GlifParser
+        let gleaner = Gleaner::new(provider).unwrap();
         let glyphs = gleaner.glean().unwrap();
 
         assert_eq!(glyphs.len(), 1);

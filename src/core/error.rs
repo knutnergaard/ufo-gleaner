@@ -1,14 +1,4 @@
-//! Error handling for UFO/GLIF parsing and related I/O operations.
-//!
-//! This module defines the [`Error`] type, its associated [`ErrorKind`], and a
-//! [`Result`] alias for convenience. It centralizes error construction and conversion
-//! from common sources (I/O, XML, plist parsing, and numeric/string parsing).
-//!
-//! Key features:
-//! - Structured error kinds for categorizing failure modes.
-//! - Optional path and context fields for richer error messages.
-//! - Automatic conversions (`From` impls) from standard and library errors.
-//! - Compatible with the standard [`std::error::Error`] trait for use with `?`.
+//! Error and Result definitions.
 
 use std::error;
 use std::fmt;
@@ -32,7 +22,7 @@ pub enum ErrorKind {
     Parse,
     /// A requested file was not found.
     FileNotFound,
-    /// An expected XML attribute was missing.
+    /// An expected XML or property list attribute was missing.
     MissingAttribute(String),
     /// Any other error not covered by the above kinds.
     Other(String),

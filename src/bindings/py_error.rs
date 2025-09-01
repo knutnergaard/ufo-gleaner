@@ -1,4 +1,3 @@
-//! Conversion utilities between Rust [`Error`] and Python exceptions (`PyErr`) for PyO3.
 use pyo3::PyErr;
 use pyo3::exceptions::{
     PyAttributeError, PyFileNotFoundError, PyOSError, PyRuntimeError, PySyntaxError, PyValueError,

@@ -1,4 +1,5 @@
-//! A streaming iterator over UFO GLIF XML events.
+//! Streaming access to UFO GLIF XML data.
+
 use quick_xml::events::Event;
 use std::io::BufRead;
 

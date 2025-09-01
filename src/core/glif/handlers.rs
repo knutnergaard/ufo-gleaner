@@ -1,4 +1,5 @@
 //! Handlers for parsing UFO GLIF XML elements into a [`GlifParseContext`].
+
 use quick_xml::events::{BytesStart, BytesText};
 
 use crate::constants::xml::attr;
