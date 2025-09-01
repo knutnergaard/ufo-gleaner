@@ -1,17 +1,7 @@
-//! Python binding for [`GlifData`].
-//!
-//! Allows Rust-native UFO glyph data to be exposed to Python as standard Python dictionaries
-//! without writing a manual conversion layer for each nested type.
-//!
-//! # Design Notes
-//!
-//! - All optional values are preserved as `None` in Python. Empty arrays or objects become empty
-//!   Python `list` or `dict`.
-//! - The conversion happens entirely in Rust, so Python code receives a fully ready-to-use
-//!   dictionary structure.
 use pyo3::exceptions::PyRuntimeError;
 use pyo3::prelude::*;
 use pyo3::types::{PyBool, PyDict, PyFloat, PyInt, PyList, PyString};
+use serde::Serialize;
 use serde_json::Value;
 
 use crate::glif::data::GlifData;
@@ -23,7 +13,7 @@ pub struct PyGlifData {
 
 #[pymethods]
 impl PyGlifData {
-    /// Serialize [`GlifData`] to JSON and recursively convert to native Python objects.
+    /// Convert [`GlifData`] to native Python dict object.
     pub fn to_pydict(&self, py: Python) -> PyResult<PyObject> {
         // serialize self.inner to JSON
         let json_val = serde_json::to_value(&self.inner)
@@ -33,7 +23,16 @@ impl PyGlifData {
     }
 }
 
-fn json_to_pydict<'py>(py: Python<'py>, val: &Value) -> PyResult<PyObject> {
+impl PyGlifData {
+    /// Convert any serializable Rust value to PyObject.
+    pub fn to_pyobject<'py, T: Serialize>(py: Python<'py>, val: &T) -> PyResult<PyObject> {
+        let json_val =
+            serde_json::to_value(val).map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
+        crate::bindings::py_data::json_to_pydict(py, &json_val)
+    }
+}
+
+pub fn json_to_pydict<'py>(py: Python<'py>, val: &Value) -> PyResult<PyObject> {
     match val {
         Value::Object(map) => {
             let dict = PyDict::new(py);
