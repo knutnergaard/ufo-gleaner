@@ -1,4 +1,5 @@
 //! Streaming XML parser to convert UFO GLIF files into [`GlifData`].
+
 use std::io::{BufReader, Cursor};
 use std::path::PathBuf;
 
@@ -9,16 +10,16 @@ use crate::error::Result;
 use crate::glif::{GlifData, GlifEventReader, GlifParseContext, handlers, helpers};
 
 use crate::paths::UfoRelativePath;
-use crate::provider::Provider;
+use crate::provider::{Provider, ProviderHandle};
 
 /// A parser for UFO GLIF files that produces [`GlifData`] from `.glif` files.
 pub struct GlifParser {
-    provider: Box<dyn Provider>,
+    provider: ProviderHandle,
 }
 
 impl GlifParser {
     /// Creates a new parser from a [`Provider`] instance.
-    pub fn new(provider: Box<dyn Provider>) -> Result<Self> {
+    pub fn new(provider: ProviderHandle) -> Result<Self> {
         Ok(Self { provider })
     }
 

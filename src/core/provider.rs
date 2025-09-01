@@ -1,7 +1,8 @@
-//! A file system abstraction and default implementation for reading files in a UFO package.
+//! A file system abstraction and default implementation for reading files in a UFO.
 use std::fs;
 use std::io::Read;
-use std::path::Path;
+use std::path::{Path, PathBuf};
+use std::rc::Rc;
 
 use crate::error::Result;
 
@@ -10,7 +11,12 @@ use crate::error::Result;
 ///
 /// Implementors of this trait provide a `read` method that returns the full
 /// contents of a file as a `Vec<u8>`.
-pub trait Provider: ProviderClone {
+pub trait Provider: 'static {
+    /// If implemented, returns the root directory of the provider.
+    ///
+    /// This method is optional, but will expose the root to provide richer error messages.
+    fn root(&self) -> &Path;
+
     /// Reads the file at `rel_path` relative to the provider's root and returns
     /// its contents as a `Vec<u8>`.
     ///
@@ -20,27 +26,13 @@ pub trait Provider: ProviderClone {
     fn read(&self, rel_path: &Path) -> Result<Vec<u8>>;
 }
 
-/// Provides a method to clone a boxed [`Provider`] trait object.
-pub trait ProviderClone {
-    fn clone_box(&self) -> Box<dyn Provider>;
-}
+pub type ProviderHandle = Rc<dyn Provider>;
 
-impl<T> ProviderClone for T
-where
-    T: 'static + Provider + Clone,
-{
-    fn clone_box(&self) -> Box<dyn Provider> {
-        Box::new(self.clone())
+impl Provider for ProviderHandle {
+    fn root(&self) -> &Path {
+        (**self).root()
     }
-}
 
-impl Clone for Box<dyn Provider> {
-    fn clone(&self) -> Box<dyn Provider> {
-        self.as_ref().clone_box()
-    }
-}
-
-impl Provider for Box<dyn Provider> {
     fn read(&self, path: &Path) -> Result<Vec<u8>> {
         (**self).read(path) // deref the Box and delegate
     }
@@ -51,17 +43,22 @@ impl Provider for Box<dyn Provider> {
 /// Useful for testing or local file system access in UFO parsing.
 #[derive(Clone)]
 pub struct FileProvider {
-    root: std::path::PathBuf,
+    root: PathBuf,
 }
 
 impl FileProvider {
-    /// Creates a new `FileProvider` with the given root directory.
-    pub fn new<P: Into<std::path::PathBuf>>(root: P) -> Self {
-        Self { root: root.into() }
+    /// Creates a new [`Rc`]-wrapped [`FileProvider`] with the given root directory.
+    pub fn new<P: Into<std::path::PathBuf>>(root: P) -> Rc<Self> {
+        Rc::new(Self { root: root.into() })
     }
 }
 
 impl Provider for FileProvider {
+    /// Returns the root directory of the provider.
+    fn root(&self) -> &Path {
+        &self.root
+    }
+
     /// Reads a file relative to the root directory and returns its contents.
     ///
     /// # Errors
@@ -84,8 +81,6 @@ mod tests {
     use std::io::Write;
     use tempfile::tempdir;
 
-    use crate::test_utils::MockProvider;
-
     #[test]
     fn test_fileprovider_reads_file() {
         let dir = tempdir().unwrap();
@@ -107,14 +102,5 @@ mod tests {
 
         let err = provider.read(Path::new("missing.txt")).unwrap_err();
         assert_eq!(err.kind(), &crate::error::ErrorKind::FileNotFound);
-    }
-
-    #[test]
-    fn test_boxed_provider_clone() {
-        let mock = Box::new(MockProvider::new().with_file(Path::new("a.txt"), b"abc"));
-        let cloned: Box<dyn Provider> = mock.clone();
-
-        let content = cloned.read(Path::new("a.txt")).unwrap();
-        assert_eq!(content, b"abc");
     }
 }

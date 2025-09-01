@@ -8,16 +8,16 @@ use plist::Value;
 
 use crate::error::{Error, ErrorKind, Result};
 use crate::paths::UfoRelativePath;
-use crate::provider::Provider;
+use crate::provider::{Provider, ProviderHandle};
 
 /// Parser for reading and querying property list (`.plist`) files inside a UFO font file system.
 pub struct PlistParser {
-    provider: Box<dyn Provider>,
+    provider: ProviderHandle,
 }
 
 impl PlistParser {
     /// Creates a new parser from a [`Provider`] instance.
-    pub fn new(provider: Box<dyn Provider>) -> Result<Self> {
+    pub fn new(provider: ProviderHandle) -> Result<Self> {
         Ok(Self { provider })
     }
 
@@ -46,7 +46,7 @@ impl PlistParser {
 ///
 /// Returns an [`Error`] if `contents.plist` cannot be read, is not a [`plist::Dictionary`],
 /// or if parsing fails for other reasons.
-pub fn parse_contents(provider: Box<dyn Provider>) -> Result<HashMap<String, String>> {
+pub fn parse_contents(provider: ProviderHandle) -> Result<HashMap<String, String>> {
     let plist_parser = PlistParser::new(provider)?;
     let contents_path = UfoRelativePath::Contents.to_pathbuf();
     let plist_value = plist_parser.parse_plist(contents_path.as_ref())?;
@@ -92,8 +92,8 @@ mod tests {
         let mut plist_bytes = Vec::new();
         plist::to_writer_xml(&mut plist_bytes, &value).unwrap();
 
-        let provider =
-            Box::new(MockProvider::new().with_file(Path::new("test.plist"), &plist_bytes));
+        let provider = MockProvider::new();
+        provider.with_file(Path::new("test.plist"), &plist_bytes);
         let parser = PlistParser::new(provider).unwrap();
 
         let parsed = parser.parse_plist(Path::new("test.plist")).unwrap();
@@ -107,7 +107,7 @@ mod tests {
 
     #[test]
     fn returns_error_when_missing_file() {
-        let provider = Box::new(MockProvider::new());
+        let provider = MockProvider::new();
         let parser = PlistParser::new(provider).unwrap();
         let err = parser.parse_plist(Path::new("missing.plist")).unwrap_err();
         assert_eq!(err.kind(), &crate::error::ErrorKind::Io);
@@ -115,8 +115,8 @@ mod tests {
 
     #[test]
     fn returns_error_when_invalid_plist() {
-        let provider =
-            Box::new(MockProvider::new().with_file(Path::new("bad.plist"), b"not valid plist"));
+        let provider = MockProvider::new();
+        provider.with_file(Path::new("bad.plist"), b"not valid plist");
         let parser = PlistParser::new(provider).unwrap();
         let err = parser.parse_plist(Path::new("bad.plist")).unwrap_err();
         assert_eq!(err.kind(), &crate::error::ErrorKind::Plist);
@@ -139,7 +139,8 @@ mod tests {
         plist::to_writer_xml(&mut plist_bytes, &value).unwrap();
 
         let path = UfoRelativePath::Contents.to_pathbuf();
-        let provider = Box::new(MockProvider::new().with_file(&path, &plist_bytes));
+        let provider = MockProvider::new();
+        provider.with_file(&path, &plist_bytes);
         let dict = parse_contents(provider).unwrap();
 
         assert_eq!(dict.len(), 2);
@@ -150,7 +151,7 @@ mod tests {
 
     #[test]
     fn test_parse_contents_invalid_file() {
-        let provider = Box::new(MockProvider::new()); // no files
+        let provider = MockProvider::new(); // no files
         let err = parse_contents(provider).unwrap_err();
         assert_eq!(err.kind(), &crate::error::ErrorKind::Io);
     }
@@ -163,7 +164,8 @@ mod tests {
         plist::to_writer_xml(&mut plist_bytes, &value).unwrap();
 
         let path = UfoRelativePath::Contents.to_pathbuf();
-        let provider = Box::new(MockProvider::new().with_file(&path, &plist_bytes));
+        let provider = MockProvider::new();
+        provider.with_file(&path, &plist_bytes);
         let err = parse_contents(provider).unwrap_err();
         assert_eq!(err.kind(), &crate::error::ErrorKind::Plist);
     }
