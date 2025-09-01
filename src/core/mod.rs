@@ -1,5 +1,6 @@
 pub mod constants;
 pub mod error;
+pub mod font;
 pub mod gleaner;
 pub mod glif;
 pub mod paths;
