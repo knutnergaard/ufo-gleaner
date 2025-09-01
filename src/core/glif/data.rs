@@ -1,9 +1,11 @@
+//! Structured representation of GLIF glyph data.
+
 use plist::Value;
 use serde::Serialize;
 use std::default::Default;
 
 /// Represents all data contained in a single `.glif` glyph file.
-#[derive(Debug, Default, Serialize)]
+#[derive(Clone, Debug, Default, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GlifData {
     pub name: String,
@@ -19,7 +21,7 @@ pub struct GlifData {
     pub lib: Option<Value>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 /// Represents advance width/height information for a glyph.
 pub struct Advance {
@@ -27,7 +29,7 @@ pub struct Advance {
     pub height: Option<f64>,
 }
 
-#[derive(Debug, Default, Serialize)]
+#[derive(Clone, Debug, Default, Serialize)]
 #[serde(rename_all = "camelCase")]
 /// Represents optional image data embedded in a glyph.
 pub struct Image {
@@ -41,7 +43,7 @@ pub struct Image {
     pub color: Option<String>,
 }
 
-#[derive(Debug, Default, Serialize)]
+#[derive(Clone, Debug, Default, Serialize)]
 #[serde(rename_all = "camelCase")]
 /// Represents a guideline element within a glyph.
 pub struct Guideline {
@@ -53,7 +55,7 @@ pub struct Guideline {
     pub identifier: Option<String>,
 }
 
-#[derive(Debug, Default, Serialize)]
+#[derive(Clone, Debug, Default, Serialize)]
 #[serde(rename_all = "camelCase")]
 /// Represents an anchor point in the glyph.
 pub struct Anchor {
@@ -64,7 +66,7 @@ pub struct Anchor {
     pub identifier: Option<String>,
 }
 
-#[derive(Debug, Default, Serialize)]
+#[derive(Clone, Debug, Default, Serialize)]
 #[serde(rename_all = "camelCase")]
 /// Represents the full outline of a glyph: components + contours.
 pub struct Outline {
@@ -72,7 +74,7 @@ pub struct Outline {
     pub contours: Vec<Contour>,
 }
 
-#[derive(Debug, Default, Serialize)]
+#[derive(Clone, Debug, Default, Serialize)]
 #[serde(rename_all = "camelCase")]
 /// Represents a single component reference within an outline.
 pub struct Component {
