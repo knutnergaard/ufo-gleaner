@@ -1,34 +1,39 @@
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::path::Path;
-use std::sync::Arc;
-use std::sync::Mutex;
+use std::path::PathBuf;
+use std::rc::Rc;
 
 use crate::provider::Provider;
 
 #[derive(Clone)]
 pub struct MockProvider {
-    files: Arc<Mutex<HashMap<String, Vec<u8>>>>,
+    root: PathBuf,
+    files: Rc<RefCell<HashMap<String, Vec<u8>>>>,
 }
 
 impl MockProvider {
-    pub fn new() -> Self {
-        Self {
-            files: Arc::new(Mutex::new(HashMap::new())),
-        }
+    pub fn new() -> Rc<Self> {
+        Rc::new(Self {
+            root: PathBuf::new(),
+            files: Rc::new(RefCell::new(HashMap::new())),
+        })
     }
 
-    pub fn with_file(self, path: &Path, content: &[u8]) -> Self {
+    pub fn with_file(&self, path: &Path, content: &[u8]) -> &Self {
         self.files
-            .lock()
-            .unwrap()
+            .borrow_mut()
             .insert(path.display().to_string(), content.to_vec());
         self
     }
 }
 
 impl Provider for MockProvider {
+    fn root(&self) -> &Path {
+        &self.root
+    }
     fn read(&self, rel_path: &Path) -> crate::error::Result<Vec<u8>> {
-        let files = self.files.lock().unwrap();
+        let files = self.files.borrow_mut();
         files
             .get(&rel_path.to_string_lossy().to_string())
             .cloned()
@@ -45,7 +50,8 @@ mod tests {
 
     #[test]
     fn test_mockprovider_read() {
-        let provider = MockProvider::new()
+        let provider = MockProvider::new();
+        provider
             .with_file(Path::new("foo.txt"), b"123")
             .with_file(Path::new("bar.txt"), b"xyz");
 
