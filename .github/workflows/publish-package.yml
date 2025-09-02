@@ -21,7 +21,7 @@ jobs:
           python-version: "3.x"
 
       - name: Install dependencies
-        run: python -m pip install --upgrade pip toml maturin --user
+        run: python -m pip install toml maturin --user
 
       - name: Extract version from tag
         id: extract_version
@@ -45,13 +45,62 @@ jobs:
           with open("pyproject.toml", "w") as f:
               toml.dump(data, f)
           EOF
-          
+
       - name: Build binary wheel and source tarball with maturin
-        run: |
-          maturin build --features python --release
+        run: maturin build --release --features python
 
       - name: Store distribution packages
         uses: actions/upload-artifact@v4
         with:
           name: python-package-distributions
           path: target/wheels/*
+
+  publish:
+    name: Publish to PyPI
+    needs:
+      - build
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+
+    steps:
+      - name: Download all dists
+        uses: actions/download-artifact@v4
+        with:
+          name: python-package-distributions
+          path: dist/
+
+      - name: Publish distribution to PyPI
+        run: |
+          pip install twine --user
+          twine upload dist/*
+
+  release:
+    name: Create GitHub Release
+    needs:
+      - publish
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download all dists
+        uses: actions/download-artifact@v4
+        with:
+          name: python-package-distributions
+          path: dist/
+
+      - name: Create GitHub Release
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: >
+          gh release create
+          "$GITHUB_REF_NAME"
+          --repo "$GITHUB_REPOSITORY"
+          --generate-notes
+          --draft
