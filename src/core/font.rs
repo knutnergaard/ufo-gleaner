@@ -87,6 +87,7 @@ impl Font {
 }
 
 /// An iterator that yields [`Glyph`] objects on demand.
+#[derive(Clone)]
 pub struct Iter {
     font: Rc<Font>,
     keys: std::vec::IntoIter<String>,

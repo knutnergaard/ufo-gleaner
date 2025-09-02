@@ -16,10 +16,10 @@ struct PyIter {
 #[pymethods]
 impl PyIter {
     fn __iter__(slf: PyRef<Self>) -> PyRef<Self> {
-        slf
+        slf.into()
     }
 
-    fn __next(mut slf: PyRefMut<Self>, py: Python) -> Option<Py<PyGlyph>> {
+    fn __next__(mut slf: PyRefMut<Self>, py: Python) -> Option<Py<PyGlyph>> {
         slf.inner
             .next()
             .map(|glyph| Py::new(py, PyGlyph { inner: glyph }).unwrap())
@@ -82,8 +82,7 @@ impl PyFont {
     }
 
     /// Return an iterator over the glyphs in the font.
-    fn __iter__(slf: PyRef<Self>) -> PyResult<Py<PyIter>> {
-        let py = slf.py();
+    fn __iter__(slf: PyRef<Self>, py: Python) -> PyResult<Py<PyIter>> {
         let iter = slf.inner.iter();
         Py::new(py, PyIter { inner: iter })
     }
