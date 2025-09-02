@@ -20,11 +20,12 @@ impl MockProvider {
         })
     }
 
-    pub fn with_file(&self, path: &Path, content: &[u8]) -> &Self {
+    pub fn with_file(self: &Rc<Self>, path: &Path, content: &[u8]) -> Rc<Self> {
         self.files
             .borrow_mut()
             .insert(path.display().to_string(), content.to_vec());
-        self
+
+        self.clone()
     }
 }
 
