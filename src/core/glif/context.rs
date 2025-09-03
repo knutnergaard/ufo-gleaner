@@ -55,9 +55,13 @@ impl GlifParseContext {
         data.outline = Some(outline);
 
         // lib
-        let cursor = Cursor::new(self.lib_buffer);
-        let value = plist::Value::from_reader_xml(cursor)?;
-        data.lib = Some(value);
+        if self.lib_buffer.is_empty() {
+            data.lib = None
+        } else {
+            let cursor = Cursor::new(self.lib_buffer);
+            let value = plist::Value::from_reader_xml(cursor)?;
+            data.lib = Some(value);
+        }
 
         // other
         data.unicodes = self.unicodes;
