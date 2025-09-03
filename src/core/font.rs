@@ -34,21 +34,22 @@ impl Font {
     /// Creates a new [`Font`] object by parsing `contents.plist` via the given provider.
     pub fn new(provider: ProviderHandle) -> Result<Rc<Self>> {
         let contents = crate::plist::parse_contents(provider.clone())?;
+        let contents_len = contents.len();
         Ok(Rc::new(Self {
             provider,
             contents,
-            glyphs: RefCell::new(HashMap::new()),
+            glyphs: RefCell::new(HashMap::with_capacity(contents_len)),
         }))
     }
 
-    /// Returns a clone of the provider handle used by this font.
-    pub fn provider(&self) -> ProviderHandle {
-        self.provider.clone()
+    /// Returns a reference to the provider handle used by this font.
+    pub fn provider(&self) -> &ProviderHandle {
+        &self.provider
     }
 
-    /// Returns a clone of the glyph contents map (`contents.plist`).
-    pub fn contents(&self) -> HashMap<String, String> {
-        self.contents.clone()
+    /// Returns a reference to the glyph contents map (`contents.plist`).
+    pub fn contents(&self) -> &HashMap<String, String> {
+        &self.contents
     }
 
     /// Returns a new [`Iter`] object.
@@ -65,7 +66,7 @@ impl Font {
         Some(
             cache
                 .entry(name.to_string())
-                .or_insert_with(|| Glyph::new(Rc::clone(self), name.to_string()))
+                .or_insert_with(|| Glyph::new(self, name.to_string()))
                 .clone(),
         )
     }
@@ -78,7 +79,7 @@ impl Font {
         let mut glyph_map = self.glyphs.borrow_mut();
         if glyph_map.is_empty() {
             for name in self.contents.keys() {
-                let glyph = Glyph::new(Rc::clone(&self), name.clone());
+                let glyph = Glyph::new(&self, name.clone());
                 glyph_map.insert(name.clone(), glyph);
             }
         }
@@ -96,7 +97,7 @@ pub struct Iter {
 impl Iter {
     pub fn new(font: Rc<Font>) -> Self {
         let keys = font
-            .contents
+            .contents()
             .keys()
             .cloned()
             .collect::<Vec<_>>()
@@ -114,24 +115,9 @@ impl Iterator for Iter {
             let mut cache = self.font.glyphs.borrow_mut();
             cache
                 .entry(name.clone())
-                .or_insert_with(|| Glyph::new(Rc::clone(&self.font), name.clone()))
+                .or_insert_with(|| Glyph::new(&self.font, name.clone()))
                 .clone()
         })
-    }
-}
-
-impl IntoIterator for Font {
-    type Item = String;
-    type IntoIter = std::vec::IntoIter<String>;
-    /// Converts a `Font` into an iterator over its glyph names.
-    fn into_iter(self) -> Self::IntoIter {
-        // Wrap self in new Rc, since `glyphs` requires Rc<Self>.
-        let arc_font = Rc::new(self);
-        arc_font
-            .glyphs()
-            .into_keys()
-            .collect::<Vec<_>>()
-            .into_iter()
     }
 }
 
@@ -148,17 +134,17 @@ pub struct Glyph {
 
 impl Glyph {
     /// Creates a new glyph wrapper with an empty cache.
-    pub fn new(font: Rc<Font>, name: String) -> Rc<Self> {
+    pub fn new(font: &Rc<Font>, name: String) -> Rc<Self> {
         Rc::new(Self {
-            font,
+            font: Rc::clone(font),
             name,
             cache: RefCell::new(None),
         })
     }
 
-    /// Returns the glyph name.
-    pub fn name(&self) -> String {
-        self.name.clone()
+    /// Returns a the glyph name as a string slice.
+    pub fn name(&self) -> &str {
+        &self.name
     }
 
     /// Returns the major format version string of the glyph's GLIF file.
@@ -222,7 +208,7 @@ impl Glyph {
 
         let contents = self.font.contents();
         let file_name = contents.get(&self.name).ok_or(
-            Error::new(ErrorKind::MissingAttribute(self.name.clone())).with_path(
+            Error::new(ErrorKind::MissingAttribute(self.name().to_owned())).with_path(
                 self.font
                     .provider()
                     .root()
@@ -231,7 +217,7 @@ impl Glyph {
             ),
         )?;
 
-        let parser = GlifParser::new(self.font.provider())?;
+        let parser = GlifParser::new(self.font.provider().clone())?;
         let parsed = parser.parse_glif(file_name)?;
 
         *self.cache.borrow_mut() = Some(parsed.clone());

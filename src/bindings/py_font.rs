@@ -149,7 +149,7 @@ impl PyGlyph {
     #[new]
     pub fn new(py: Python<'_>, font: PyObject, name: String) -> PyResult<Self> {
         let font = font.extract::<PyRef<PyFont>>(py)?;
-        let inner = Glyph::new(Rc::clone(&font.inner), name);
+        let inner = Glyph::new(&font.inner, name);
 
         Ok(Self { inner })
     }
@@ -157,7 +157,7 @@ impl PyGlyph {
     /// Get the glyph name.
     #[getter]
     pub fn name(&self) -> String {
-        self.inner.name()
+        self.inner.name().to_owned()
     }
 
     /// Get the major format version string of the glyph's GLIF file.
