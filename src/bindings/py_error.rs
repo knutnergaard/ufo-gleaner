@@ -23,17 +23,6 @@ impl PyErrExt for PyErr {
     }
 }
 
-/// Extension trait to convert a Rust [`Error`] into a Python exception (`PyErr`).
-///
-/// This is used when returning results from PyO3 functions so that Rust errors can
-/// be raised as Python exceptions.
-pub trait ToPyErr {
-    /// Converts the Rust [`Error`] into a [`PyIOError`] by default.
-    ///
-    /// The error message includes context and path information from the Rust [`Error`].
-    fn to_pyerr(self) -> PyErr;
-}
-
 impl From<Error> for PyErr {
     fn from(err: Error) -> Self {
         match err.kind() {
