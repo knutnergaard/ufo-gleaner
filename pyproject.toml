@@ -4,10 +4,10 @@ build-backend = "maturin"
 
 [project]
 name = "ufo_gleaner"
-version = "0.2.1"
+version = "0.2.2"
 description = "High-performance UFO/GLIF parser for Python written in Rust"
 authors = [{ name = "Knut Nergaard", email = "knut.nergaard@gmail.com" }]
-license = {file = "LICENSE"}
+license = {text = "MIT"}
 readme = "README.md"
 requires-python = ">=3.10"
 keywords = [
